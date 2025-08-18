@@ -20,6 +20,9 @@ import { TaxRateOverride } from '@/types/dto/tax';
 import { AddAddonToSubscriptionRequest } from '@/types/dto/Addon';
 import { useQuery } from '@tanstack/react-query';
 import AddonApi from '@/api/AddonApi';
+import TaxApi from '@/api/TaxApi';
+import { TaxRateResponse } from '@/types/dto/tax';
+import { BaseEntityStatus } from '@/types/common';
 
 const PERIOD_DURATION: Record<BILLING_PERIOD, string> = {
 	[BILLING_PERIOD.DAILY]: '1 day',
@@ -141,25 +144,42 @@ const calculateAddonTotal = (
 };
 
 /**
- * Calculates tax amount based on tax rate overrides
+ * Calculates tax amount based on tax rate overrides and fetched tax rate data
  */
-const calculateTaxAmount = (subtotal: number, taxRateOverrides: TaxRateOverride[], currency: string): number => {
+const calculateTaxAmount = (
+	subtotal: number,
+	taxRateOverrides: TaxRateOverride[],
+	currency: string,
+	taxRates: TaxRateResponse[],
+): number => {
 	if (!taxRateOverrides || taxRateOverrides.length === 0) return 0;
 
 	// Filter tax overrides for the current currency and auto-apply enabled
 	const applicableTaxes = taxRateOverrides.filter((tax) => tax.currency.toLowerCase() === currency.toLowerCase() && tax.auto_apply);
 
-	// For simplicity, we'll assume a basic tax calculation
-	// In a real implementation, you would fetch tax rates and calculate properly
-	// For now, let's assume a 10% tax rate for demo purposes
-	// TODO: Implement proper tax rate fetching and calculation
+	// Calculate total tax amount by matching overrides with actual tax rate data
+	let totalTaxAmount = 0;
 
-	if (applicableTaxes.length > 0) {
-		// For demo purposes, applying a 10% tax
-		return subtotal * 0.1;
+	for (const taxOverride of applicableTaxes) {
+		// Find the corresponding tax rate data using the tax_rate_code
+		const taxRateData = taxRates.find((rate) => rate.code === taxOverride.tax_rate_code);
+
+		if (taxRateData) {
+			// Apply percentage-based tax
+			if (taxRateData.percentage_value !== undefined && taxRateData.percentage_value !== null) {
+				totalTaxAmount += (taxRateData.percentage_value / 100) * subtotal;
+			}
+			// Apply fixed-amount tax
+			else if (taxRateData.fixed_value !== undefined && taxRateData.fixed_value !== null) {
+				totalTaxAmount += taxRateData.fixed_value;
+			}
+		} else {
+			// Tax rate data not found - this could happen if the tax rate was deleted or not published
+			console.warn(`Tax rate data not found for code: ${taxOverride.tax_rate_code}. Skipping tax calculation.`);
+		}
 	}
 
-	return 0;
+	return totalTaxAmount;
 };
 
 /**
@@ -188,6 +208,28 @@ const Preview = ({
 		},
 		staleTime: 5 * 60 * 1000,
 		refetchOnWindowFocus: false,
+	});
+
+	// Extract unique tax rate codes from overrides to fetch only needed tax rates
+	const taxRateCodes = useMemo(() => {
+		if (!taxRateOverrides || taxRateOverrides.length === 0) return [];
+		return [...new Set(taxRateOverrides.map((override) => override.tax_rate_code))];
+	}, [taxRateOverrides]);
+
+	// Fetch tax rates data for calculation
+	const { data: allTaxRates = [] } = useQuery({
+		queryKey: ['publishedTaxRates', taxRateCodes],
+		queryFn: async () => {
+			const response = await TaxApi.listTaxRates({
+				limit: 1000,
+				status: BaseEntityStatus.PUBLISHED,
+			});
+			// Filter to only return tax rates that are referenced in the overrides
+			return response.items.filter((rate) => taxRateCodes.includes(rate.code));
+		},
+		staleTime: 5 * 60 * 1000,
+		refetchOnWindowFocus: false,
+		enabled: taxRateCodes.length > 0, // Only fetch if there are tax rate codes to fetch
 	});
 
 	const recurringCharges = useMemo(() => data.filter((charge) => charge.type === 'FIXED'), [data]);
@@ -224,8 +266,8 @@ const Preview = ({
 
 	// Calculate tax amount (applied to plan after discount + addons)
 	const taxAmount = useMemo(() => {
-		return calculateTaxAmount(totalBeforeTax, taxRateOverrides, currency);
-	}, [totalBeforeTax, taxRateOverrides, currency]);
+		return calculateTaxAmount(totalBeforeTax, taxRateOverrides, currency, allTaxRates);
+	}, [totalBeforeTax, taxRateOverrides, currency, allTaxRates]);
 
 	// Calculate final total including tax
 	const finalTotal = useMemo(() => {
