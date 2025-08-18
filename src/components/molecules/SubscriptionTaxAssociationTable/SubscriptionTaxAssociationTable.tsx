@@ -7,11 +7,12 @@ import { TAXRATE_ENTITY_TYPE } from '@/models/Tax';
 
 interface Props {
 	data: TaxRateOverride[];
+	subscriptionCurrency: string;
 	onChange: (data: TaxRateOverride[]) => void;
 	disabled?: boolean;
 }
 
-const SubscriptionTaxAssociationTable: FC<Props> = ({ data, onChange, disabled }) => {
+const SubscriptionTaxAssociationTable: FC<Props> = ({ data, onChange, disabled, subscriptionCurrency }) => {
 	const [isOpen, setIsOpen] = useState(false);
 	const [selectedTaxOverride, setSelectedTaxOverride] = useState<TaxRateOverride | null>(null);
 
@@ -94,7 +95,7 @@ const SubscriptionTaxAssociationTable: FC<Props> = ({ data, onChange, disabled }
 					entity_type: TAXRATE_ENTITY_TYPE.SUBSCRIPTION,
 					entity_id: 'temp',
 					priority: selectedTaxOverride?.priority || 1,
-					currency: selectedTaxOverride?.currency || 'usd',
+					currency: selectedTaxOverride?.currency || subscriptionCurrency,
 					auto_apply: selectedTaxOverride?.auto_apply || true,
 				}}
 				onCancel={() => {

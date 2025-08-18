@@ -1,6 +1,6 @@
-import { FC, useState, useCallback } from 'react';
+import { FC, useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Input, Select, SelectOption, Toggle, Dialog } from '@/components/atoms';
+import { Button, Select, SelectOption, Dialog } from '@/components/atoms';
 import TaxApi from '@/api/TaxApi';
 import { TAXRATE_ENTITY_TYPE } from '@/models/Tax';
 import { CreateTaxAssociationRequest, TaxRateResponse } from '@/types/dto/tax';
@@ -45,13 +45,24 @@ const TaxAssociationDialog: FC<TaxAssociationDialogProps> = ({
 
 	const [formData, setFormData] = useState<FormData>({
 		tax_rate_code: data?.tax_rate_code || '',
-		priority: data?.priority || 1,
-		currency: data?.currency || 'usd',
-		auto_apply: data?.auto_apply || true,
+		priority: 1,
+		currency: data?.currency?.toUpperCase() || 'USD',
+		auto_apply: true,
 	});
 
 	const [errors, setErrors] = useState<FormErrors>({});
 
+	// Sync form data with prop changes
+	useEffect(() => {
+		if (data) {
+			setFormData({
+				tax_rate_code: data.tax_rate_code || '',
+				priority: 1,
+				currency: data.currency?.toUpperCase() || 'USD',
+				auto_apply: true,
+			});
+		}
+	}, [data]);
 	// Fetch published tax rates
 	const { data: taxRatesData, isLoading: isLoadingTaxRates } = useQuery({
 		queryKey: ['fetchPublishedTaxRates'],
@@ -127,7 +138,7 @@ const TaxAssociationDialog: FC<TaxAssociationDialogProps> = ({
 		setFormData({
 			tax_rate_code: '',
 			priority: 1,
-			currency: '',
+			currency: 'USD',
 			auto_apply: true,
 		});
 		setErrors({});
@@ -159,21 +170,6 @@ const TaxAssociationDialog: FC<TaxAssociationDialogProps> = ({
 						/>
 						{isLoadingTaxRates && <p className='text-sm text-gray-500 mt-1'>Loading tax rates...</p>}
 					</div>
-
-					<div className='space-y-2'>
-						<Input
-							label='Priority'
-							id='priority'
-							type='number'
-							min='1'
-							value={formData.priority.toString()}
-							onChange={(value) => handleFieldChange('priority', parseInt(value) || 1)}
-							placeholder='Enter priority (1-100)'
-							error={errors.priority}
-						/>
-						<p className='text-sm text-gray-500'>Determines the order of application when multiple tax rates apply</p>
-					</div>
-
 					<div className='space-y-2'>
 						<Select
 							label='Currency'
@@ -183,15 +179,6 @@ const TaxAssociationDialog: FC<TaxAssociationDialogProps> = ({
 							placeholder='Select currency'
 							error={errors.currency}
 						/>
-					</div>
-
-					<div className='space-y-2'>
-						<Toggle
-							checked={formData.auto_apply}
-							onChange={(checked: boolean) => handleFieldChange('auto_apply', checked)}
-							label='Auto Apply'
-						/>
-						<p className='text-sm text-gray-500'>Automatically apply this tax rate when applicable</p>
 					</div>
 				</div>
 

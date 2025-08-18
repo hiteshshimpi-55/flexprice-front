@@ -227,6 +227,7 @@ const CreateCustomerDrawer: FC<Props> = ({ data, onOpenChange, open, trigger }) 
 		onSuccess: async () => {
 			if (data) {
 				await refetchQueries(['fetchCustomerDetails', data.id || '']);
+				await refetchQueries(['fetchCustomers']);
 				toast.success('Customer updated successfully');
 			} else {
 				await refetchQueries(['fetchCustomers']);

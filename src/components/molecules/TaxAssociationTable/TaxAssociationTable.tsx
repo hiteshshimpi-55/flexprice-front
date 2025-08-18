@@ -22,14 +22,6 @@ const TaxAssociationTable: FC<Props> = ({ data, onEdit, showDelete = true }) => 
 			),
 		},
 		{
-			title: 'Priority',
-			render: (row) => row.priority,
-		},
-		{
-			title: 'Auto Apply',
-			render: (row) => <Chip variant={row.auto_apply ? 'success' : 'default'} label={row.auto_apply ? 'Yes' : 'No'} />,
-		},
-		{
 			title: 'Currency',
 			render: (row) => row.currency,
 		},
@@ -55,7 +47,7 @@ const TaxAssociationTable: FC<Props> = ({ data, onEdit, showDelete = true }) => 
 						id={row?.id}
 						editPath={''}
 						isEditDisabled={false}
-						isArchiveDisabled={showDelete}
+						isArchiveDisabled={!showDelete}
 						refetchQueryKey={'fetchTaxAssociations'}
 						entityName={`Tax Association ${row?.id}`}
 						onEdit={() => onEdit?.(row)}

@@ -693,6 +693,7 @@ const SubscriptionForm = ({
 					<SubscriptionTaxAssociationTable
 						data={state.tax_rate_overrides || []}
 						onChange={(data) => setState((prev) => ({ ...prev, tax_rate_overrides: data }))}
+						subscriptionCurrency={state.currency}
 						disabled={isDisabled}
 					/>
 				</div>

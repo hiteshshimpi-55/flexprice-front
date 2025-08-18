@@ -203,7 +203,7 @@ const SubscriptionDetails: FC = () => {
 
 			{/* Credit Grants Section */}
 			{creditGrants?.items && creditGrants.items.length > 0 && (
-				<Card className='card mt-8'>
+				<Card className='card mt-4'>
 					<FormHeader title='Credit Grants' variant='sub-header' titleClassName='font-semibold' />
 					<div className='mt-4'>
 						<FlexpriceTable data={creditGrants.items} columns={columns} showEmptyRow={false} />
@@ -212,7 +212,7 @@ const SubscriptionDetails: FC = () => {
 			)}
 
 			{subscriptionTaxAssociations?.items && subscriptionTaxAssociations.items.length > 0 && (
-				<Card className='card mt-8'>
+				<Card className='card mt-4'>
 					<FormHeader title='Tax Associations' variant='sub-header' titleClassName='font-semibold' />
 					<div className='mt-4'>
 						<TaxAssociationTable data={subscriptionTaxAssociations.items} />
@@ -222,7 +222,7 @@ const SubscriptionDetails: FC = () => {
 
 			{/* subscription schedule */}
 			{subscriptionDetails?.schedule?.phases?.length && subscriptionDetails?.schedule?.phases?.length > 0 && (
-				<Card className='card mt-8'>
+				<Card className='card mt-4'>
 					<FormHeader title='Subscription Phases' variant='sub-header' titleClassName='font-semibold' />
 					<div className='flex flex-col gap-4 pl-6'>
 						{subscriptionDetails?.schedule?.phases?.length ? (
