@@ -5,7 +5,6 @@ import TaxApi from '@/api/TaxApi';
 import { TAXRATE_ENTITY_TYPE } from '@/models/Tax';
 import { CreateTaxAssociationRequest, TaxRateResponse } from '@/types/dto/tax';
 import { BaseEntityStatus } from '@/types/common';
-import { currencyOptions } from '@/constants/constants';
 
 interface TaxAssociationDialogProps {
 	open: boolean;
@@ -169,16 +168,6 @@ const TaxAssociationDialog: FC<TaxAssociationDialogProps> = ({
 							error={errors.tax_rate_code}
 						/>
 						{isLoadingTaxRates && <p className='text-sm text-gray-500 mt-1'>Loading tax rates...</p>}
-					</div>
-					<div className='space-y-2'>
-						<Select
-							label='Currency'
-							value={formData.currency}
-							onChange={(value: string) => handleFieldChange('currency', value)}
-							options={currencyOptions}
-							placeholder='Select currency'
-							error={errors.currency}
-						/>
 					</div>
 				</div>
 
