@@ -53,16 +53,12 @@ const SubscriptionTaxAssociationTable: FC<Props> = ({ data, onChange, disabled, 
 			},
 		},
 		{
-			title: 'Priority',
-			render: (row) => row.priority || '--',
-		},
-		{
 			title: 'Auto Apply',
 			render: (row) => <Chip variant={row.auto_apply ? 'success' : 'default'} label={row.auto_apply ? 'Yes' : 'No'} />,
 		},
 		{
 			title: 'Currency',
-			render: (row) => row.currency,
+			render: (row) => row.currency.toLocaleUpperCase(),
 		},
 		{
 			fieldVariant: 'interactive',
