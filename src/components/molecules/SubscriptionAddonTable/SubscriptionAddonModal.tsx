@@ -148,7 +148,7 @@ const SubscriptionAddonModal: React.FC<Props> = ({ data, currentAddons, isOpen, 
 			.map((addon) => ({
 				label: addon.name,
 				value: addon.id,
-				description: `${toSentenceCase(addon.type)} - ${addon.description || 'No description'}`,
+				description: `${toSentenceCase(addon.type)} ${addon.description ? `- ${addon.description}` : ''}`,
 			}));
 	}, [addons, currentAddons, data]);
 
