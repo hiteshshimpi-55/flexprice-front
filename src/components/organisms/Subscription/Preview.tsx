@@ -1,4 +1,4 @@
-import { Price, PRICE_TYPE } from '@/models/Price';
+import { Price, PRICE_TYPE, PRICE_ENTITY_TYPE } from '@/models/Price';
 import { useMemo } from 'react';
 import {
 	formatBillingPeriodForDisplay,
@@ -8,6 +8,7 @@ import {
 } from '@/utils/common/helper_functions';
 import { BILLING_PERIOD } from '@/constants/constants';
 import { BILLING_CYCLE, SubscriptionPhase } from '@/models/Subscription';
+import { INVOICE_CADENCE } from '@/models/Invoice';
 import formatDate from '@/utils/common/format_date';
 import { calculateAnniversaryBillingAnchor, calculateCalendarBillingAnchor } from '@/utils/helpers/subscription';
 import { cn } from '@/lib/utils';
@@ -46,12 +47,12 @@ interface PreviewProps {
 }
 
 /**
- * Determines if any charge has ADVANCE invoice cadence
+ * Determines if any plan charge has ADVANCE invoice cadence (excludes addon charges)
  */
-// TODO: This is a temporary function to check if any charge has ADVANCE invoice cadence
-// TODO: This should be removed once the invoice cadence is implemented
 const hasAdvanceCharge = (charges: Price[]): boolean => {
-	return charges?.some((charge) => charge.invoice_cadence === 'ADVANCE') ?? false;
+	return (
+		charges?.some((charge) => charge.invoice_cadence === INVOICE_CADENCE.ADVANCE && charge.entity_type === PRICE_ENTITY_TYPE.PLAN) ?? false
+	);
 };
 
 /**
@@ -108,6 +109,7 @@ const calculateTotalWithLineItemCoupons = (
 
 /**
  * Calculates addon total based on addon requests and their prices
+ * Only considers prices with ADVANCE invoice cadence
  */
 const calculateAddonTotal = (
 	addons: AddAddonToSubscriptionRequest[],
@@ -121,12 +123,13 @@ const calculateAddonTotal = (
 	addons.forEach((addonRequest) => {
 		const addon = allAddons.find((a) => a.id === addonRequest.addon_id);
 		if (addon?.prices) {
-			// Find the price that matches the billing period and currency
+			// Find the price that matches the billing period, currency, and is an ADVANCE charge
 			const matchingPrice = addon.prices.find(
 				(price: Price) =>
 					price.billing_period.toLowerCase() === billingPeriod.toLowerCase() &&
 					price.currency.toLowerCase() === currency.toLowerCase() &&
-					price.type === 'FIXED',
+					price.type === 'FIXED' &&
+					price.invoice_cadence === INVOICE_CADENCE.ADVANCE,
 			);
 
 			if (matchingPrice) {
@@ -145,6 +148,7 @@ const calculateAddonTotal = (
 
 /**
  * Calculates tax amount based on tax rate overrides and fetched tax rate data
+ * Tax is calculated on the subtotal amount after discounts are applied
  */
 const calculateTaxAmount = (
 	subtotal: number,
@@ -184,6 +188,8 @@ const calculateTaxAmount = (
 
 /**
  * Component that displays subscription preview information including start date and first invoice details
+ * Shows only ADVANCE charges (charges that will be billed immediately)
+ * Separates plan charges from addon charges to prevent double-counting
  */
 const Preview = ({
 	data,
@@ -232,12 +238,22 @@ const Preview = ({
 		enabled: taxRateCodes.length > 0, // Only fetch if there are tax rate codes to fetch
 	});
 
-	const recurringCharges = useMemo(() => data.filter((charge) => charge.type === 'FIXED'), [data]);
+	// Filter to only show PLAN charges with ADVANCE invoice cadence (excludes addon charges to prevent double-counting)
+	const recurringCharges = useMemo(
+		() =>
+			data.filter(
+				(charge) =>
+					charge.type === 'FIXED' && charge.invoice_cadence === INVOICE_CADENCE.ADVANCE && charge.entity_type === PRICE_ENTITY_TYPE.PLAN,
+			),
+		[data],
+	);
 
+	// Usage charges are typically billed in arrears, so we include all usage charges
 	const usageCharges = useMemo(() => data.filter((charge) => charge.type === PRICE_TYPE.USAGE), [data]);
 
 	const { total: recurringTotal, totalDiscount: lineItemTotalDiscount } = useMemo(() => {
-		return calculateTotalWithLineItemCoupons(recurringCharges, priceOverrides, lineItemCoupons);
+		const result = calculateTotalWithLineItemCoupons(recurringCharges, priceOverrides, lineItemCoupons);
+		return result;
 	}, [recurringCharges, priceOverrides, lineItemCoupons]);
 
 	// Calculate addon total
@@ -259,20 +275,21 @@ const Preview = ({
 		return Math.max(0, recurringTotal - subscriptionCouponDiscount);
 	}, [recurringTotal, subscriptionCouponDiscount]);
 
-	// Calculate total before tax (plan after discount + addons)
-	const totalBeforeTax = useMemo(() => {
+	// Calculate subtotal after discounts (plan after discounts + addons)
+	const subtotalAfterDiscounts = useMemo(() => {
 		return planSubtotalAfterDiscounts + addonTotal;
 	}, [planSubtotalAfterDiscounts, addonTotal]);
 
-	// Calculate tax amount (applied to plan after discount + addons)
+	// Calculate tax amount (applied to amount after discounts)
+	// Tax is calculated on the final amount after discounts are applied
 	const taxAmount = useMemo(() => {
-		return calculateTaxAmount(totalBeforeTax, taxRateOverrides, currency, allTaxRates);
-	}, [totalBeforeTax, taxRateOverrides, currency, allTaxRates]);
+		return calculateTaxAmount(subtotalAfterDiscounts, taxRateOverrides, currency, allTaxRates);
+	}, [subtotalAfterDiscounts, taxRateOverrides, currency, allTaxRates]);
 
-	// Calculate final total including tax
+	// Calculate final total: subtotal after discounts + tax
 	const finalTotal = useMemo(() => {
-		return totalBeforeTax + taxAmount;
-	}, [totalBeforeTax, taxAmount]);
+		return subtotalAfterDiscounts + taxAmount;
+	}, [subtotalAfterDiscounts, taxAmount]);
 
 	const firstInvoiceDate = useMemo(() => {
 		return startDate ? calculateFirstInvoiceDate(startDate as Date, billingPeriod, billingCycle) : undefined;
@@ -339,7 +356,7 @@ const Preview = ({
 							</>
 						)}
 
-						{/* Tax */}
+						{/* Tax (calculated on discounted amount) */}
 						{taxAmount > 0 && (
 							<p className='text-sm text-gray-600'>
 								Tax: {getCurrencySymbol(currency || 'USD')}
